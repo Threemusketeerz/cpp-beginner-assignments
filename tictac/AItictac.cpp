@@ -2,6 +2,8 @@
 #include <vector>
 #include <stdio.h>
 #include <ncurses.h>
+#include <stdlib.h> // srand, rand
+#include <time.h>
 
 
 
@@ -72,7 +74,7 @@ std::vector<point> points_manager(std::vector<point> points, struct player p){
 }
 
 void draw(std::vector<point> points, char turn, struct player p1,
-            struct player p2, int dim, int cell_size){
+            struct player p2, int dim, int cell_size, bool game_over){
 
     int point_index = 0;
 
@@ -88,11 +90,11 @@ void draw(std::vector<point> points, char turn, struct player p1,
             // Player position
             else if (x%(cell_size/2) == 0 && y%(cell_size/2) == 0){
                 // if cell empty, print the player instead else print
-                if (y == p1.posy && x == p1.posx && turn == p1.id){
+                if (y == p1.posy && x == p1.posx && turn == p1.id && !game_over){
                     printw("1");
                     point_index++;
                 } 
-                else if (y == p2.posy && x == p2.posx && turn == p2.id){
+                else if (y == p2.posy && x == p2.posx && turn == p2.id && !game_over){
                     printw("2");
                     point_index++;
                 }
@@ -118,6 +120,33 @@ void print_vstate(std::vector<point> points){
     }
 }
 
+bool is_game_over(std::vector<point> points){
+    for (int i = 0; i < points.size(); i++){
+        if (points[i].player == ' ')
+            return false;
+    }
+    return true;
+}
+
+std::vector<point> ai_controller(std::vector<point> points, struct player p){
+    // init random seed
+    srand(time(NULL));
+
+    int placed = 0;
+
+    do {
+        int rand_index = rand() % points.size() + 0;
+        printw("points.size(): %i", points.size());
+        printw("rand_index: %i\n", rand_index);
+        refresh();
+        if (points[rand_index].player == ' ') {
+            points[rand_index].player = p.id;
+            placed = 1;
+        }
+    } while (placed == 0);
+    return points;
+}
+
 int main() {
     int width = 9;
     int height = 9;
@@ -139,37 +168,47 @@ int main() {
     initscr();
     printw("Player 1 is X\n");
     printw("Player 2 is O\n\n");
-    draw(points, turn, p1, p2, dim, cell_size);
+    draw(points, turn, p1, p2, dim, cell_size, game_over);
     refresh();
 
     while(!game_over){
         //getch();
 
         print_vstate(points);
-        char input = getch();
-        if (input == 'p' && turn == p1.id){
-            points = points_manager(points, p1);
-            turn = turn_manager(turn, p1.id, p2.id);
-        } 
-        else if (input == 'p' && turn == p2.id){
-            points = points_manager(points, p2);
-            turn = turn_manager(turn, p1.id, p2.id);
-        }
-        else {
-            if (turn == p1.id){
+        char input;
+        if (turn == p1.id){
+            input = getch();
+            if (input == 'p') {
+                points = points_manager(points, p1);
+                turn = turn_manager(turn, p1.id, p2.id);
+            }
+            else {
                 p1 = controller(p1, input, cell_size, cell_num);
             }
-            else if (turn == p2.id){
-                p2 = controller(p2, input, cell_size, cell_num);
-            }
+        } 
+        else if (turn == p2.id){
+            //points = points_manager(points, p2);
+            points = ai_controller(points, p2);
+            turn = turn_manager(turn, p1.id, p2.id);
         }
+        //else {
+            //if (turn == p1.id){
+            //}
+        //}
 
         clear();
         printw("Player 1 is X\n");
         printw("Player 2 is O\n\n");
-        draw(points, turn, p1, p2, dim, cell_size);
+        draw(points, turn, p1, p2, dim, cell_size, game_over);
+        game_over = is_game_over(points);
         refresh();
         //getch();
+    }
+
+    if (game_over){
+        clear();
+        draw(points, turn, p1, p2, dim, cell_size, game_over);
+        getch();
     }
 
     endwin();
